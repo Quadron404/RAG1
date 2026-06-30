@@ -40,8 +40,11 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
+    const mime = body.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const dataUri = `data:${mime};base64,${imageBase64}`;
+
     const formData = new FormData();
-    formData.append('base64Image', imageBase64);
+    formData.append('base64Image', dataUri);
     formData.append('language', 'eng');
     formData.append('OCREngine', '3');
     formData.append('isOverlayRequired', 'false');
@@ -51,25 +54,20 @@ export async function onRequestPost({ request, env }) {
       body: formData,
     });
 
-    const ocrStatus = ocrRes.status;
-    let ocrRaw;
-    try {
-      ocrRaw = await ocrRes.text();
-    } catch {
-      ocrRaw = '(unreadable)';
+    const ocrData = await ocrRes.json();
+    const exitCode = ocrData.OCRExitCode;
+    const parsed = ocrData.ParsedResults?.[0];
+    const text = (parsed?.ParsedText || '').trim();
+    const errorMsg = ocrData.ErrorMessage?.[0]?.ErrorMessage || '';
+    const parsedCount = ocrData.ParsedResults?.length || 0;
+    const fileExitCode = parsed?.FileParseExitCode;
+    const errDetails = parsed?.ErrorDetails || '';
+
+    if (ocrData.IsErroredOnProcessing || errorMsg) {
+      return json({ error: errorMsg || 'OCR failed', exitCode, parsedCount, fileExitCode, errDetails }, 422);
     }
 
-    let ocrData;
-    try {
-      ocrData = JSON.parse(ocrRaw);
-    } catch {
-      return json({ error: 'OCR.Space returned non-JSON', status: ocrStatus, raw: ocrRaw.slice(0, 2000) }, 502);
-    }
-
-    return json({
-      text: '',
-      _debug: { ocrStatus, ocrRaw: ocrRaw.slice(0, 3000), imageSize: imageBase64.length },
-    });
+    return json({ text, exitCode, parsedCount, fileExitCode, imageSize: imageBase64.length });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }

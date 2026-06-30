@@ -82,9 +82,11 @@ export default function CameraCapture({ onCapture, onClose }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     let base64;
+    let type = 'image/jpeg';
     try {
       base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
     } catch {
+      type = 'image/png';
       base64 = canvas.toDataURL('image/png').split(',')[1];
     }
 
@@ -96,7 +98,7 @@ export default function CameraCapture({ onCapture, onClose }) {
       const res = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: base64, type }),
       });
 
       const data = await res.json();
