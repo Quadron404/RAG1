@@ -40,15 +40,14 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const params = new URLSearchParams();
-    params.set('base64Image', `data:image/png;base64,${imageBase64}`);
-    params.set('language', 'eng');
-    params.set('OCREngine', '3');
+    const formData = new FormData();
+    formData.append('base64Image', imageBase64);
+    formData.append('language', 'eng');
+    formData.append('OCREngine', '3');
 
     const ocrRes = await fetch(`https://api.ocr.space/parse/image?apikey=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
+      body: formData,
     });
 
     const ocrData = await ocrRes.json();
@@ -62,10 +61,12 @@ export async function onRequestPost({ request, env }) {
 
     const parsed = ocrData.ParsedResults?.[0];
     const text = (parsed?.ParsedText || '').trim();
+    const exitCode = ocrData.OCRExitCode;
 
     return json({
       text,
-      exitCode: ocrData.OCRExitCode,
+      exitCode,
+      imageSize: imageBase64.length,
     });
   } catch (err) {
     return json({ error: String(err) }, 500);
