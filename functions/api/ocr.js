@@ -33,27 +33,43 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'No image provided' }, 400);
   }
 
-  const ocrForm = new FormData();
-  ocrForm.append('base64Image', imageBase64);
-  ocrForm.append('language', 'eng');
-  ocrForm.append('OCREngine', '3');
-  ocrForm.append('isOverlayRequired', 'false');
+  if (imageBase64.length < 100) {
+    return json({ error: 'Image data appears truncated' }, 400);
+  }
+
+  const params = new URLSearchParams();
+  params.append('base64Image', imageBase64);
+  params.append('language', 'eng');
+  params.append('OCREngine', '3');
+  params.append('scale', 'true');
+  params.append('detectOrientation', 'true');
+  params.append('isOverlayRequired', 'false');
 
   try {
     const ocrRes = await fetch('https://api.ocr.space/parse/image', {
       method: 'POST',
-      headers: { 'apikey': apiKey },
-      body: ocrForm,
+      headers: {
+        'apikey': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
     });
 
     const ocrData = await ocrRes.json();
+
     if (ocrData.IsErroredOnProcessing) {
       const errMsg = ocrData.ErrorMessage?.[0]?.ErrorMessage || 'OCR processing failed';
-      return json({ error: errMsg, details: ocrData }, 422);
+      return json({
+        error: errMsg,
+        exitCode: ocrData.OCRExitCode,
+      }, 422);
     }
 
     const text = (ocrData.ParsedResults?.[0]?.ParsedText || '').trim();
-    return json({ text: text || '(no text detected)' });
+    return json({
+      text,
+      exitCode: ocrData.OCRExitCode,
+    });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }

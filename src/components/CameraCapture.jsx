@@ -4,21 +4,6 @@ function haptic(strength = 10) {
   navigator.vibrate?.(strength);
 }
 
-function canvasToBase64(canvas) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => {
-      if (!blob) { reject(new Error('Failed to create image')); return; }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error('Failed to read image'));
-      reader.readAsDataURL(blob);
-    }, 'image/jpeg', 0.92);
-  });
-}
-
 export default function CameraCapture({ onCapture, onClose }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -72,12 +57,12 @@ export default function CameraCapture({ onCapture, onClose }) {
     if (!video || !canvas || !ready) return;
 
     haptic(16);
-    const width = video.videoWidth;
-    const height = video.videoHeight;
+    const width = video.videoWidth || 1920;
+    const height = video.videoHeight || 1080;
     canvas.width = width;
     canvas.height = height;
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d');
     if (facing === 'user') {
       ctx.translate(width, 0);
       ctx.scale(-1, 1);
@@ -85,13 +70,18 @@ export default function CameraCapture({ onCapture, onClose }) {
     ctx.drawImage(video, 0, 0, width, height);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+    let base64;
+    try {
+      base64 = canvas.toDataURL('image/png').split(',')[1];
+    } catch {
+      base64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+    }
+
     setCaptured(true);
     stopStream();
     setAnalyzing(true);
 
     try {
-      const base64 = await canvasToBase64(canvas);
-
       const res = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,13 +89,15 @@ export default function CameraCapture({ onCapture, onClose }) {
       });
 
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'OCR failed');
+      if (!res.ok || data.error) {
+        throw new Error(data.error + (data.exitCode ? ` (exit code: ${data.exitCode})` : ''));
+      }
 
       haptic([10, 30, 10]);
       onCapture?.(data.text || '');
     } catch (err) {
       haptic([20, 40, 20]);
-      onCapture?.('');
+      onCapture?.(null);
     }
   };
 

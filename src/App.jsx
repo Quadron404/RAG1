@@ -608,6 +608,14 @@ function CliModal({ onClose }) {
 
   const handleImageCapture = useCallback(async (extracted) => {
     setCameraOpen(false);
+
+    if (extracted === null) {
+      setHistory(h => [...h, { type: 'sys', text: '[!!] OCR analysis failed. Please try again.' }]);
+      setAnalyzing(false);
+      setTimeout(() => inputRef.current?.focus(), 60);
+      return;
+    }
+
     setAnalyzing(true);
     setHistory(h => [...h, { type: 'sys', text: '[Image Ingest] OCR complete.' }]);
 
