@@ -22,9 +22,11 @@ export async function onRequestPost({ request, env }) {
   }
 
   let imageBase64;
+  let size;
   try {
     const body = await request.json();
     imageBase64 = typeof body.image === 'string' ? body.image.trim() : '';
+    size = body.size || 0;
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
@@ -33,39 +35,34 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'No image provided' }, 400);
   }
 
-  if (imageBase64.length < 100) {
-    return json({ error: 'Image data appears truncated' }, 400);
+  if (imageBase64.length < 500) {
+    return json({ error: 'Image data too small or truncated', length: imageBase64.length }, 400);
   }
 
-  const params = new URLSearchParams();
-  params.append('base64Image', imageBase64);
-  params.append('language', 'eng');
-  params.append('OCREngine', '3');
-  params.append('scale', 'true');
-  params.append('detectOrientation', 'true');
-  params.append('isOverlayRequired', 'false');
-
   try {
-    const ocrRes = await fetch('https://api.ocr.space/parse/image', {
+    const params = new URLSearchParams();
+    params.set('base64Image', `data:image/png;base64,${imageBase64}`);
+    params.set('language', 'eng');
+    params.set('OCREngine', '3');
+
+    const ocrRes = await fetch(`https://api.ocr.space/parse/image?apikey=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
-      headers: {
-        'apikey': apiKey,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
     });
 
     const ocrData = await ocrRes.json();
 
     if (ocrData.IsErroredOnProcessing) {
-      const errMsg = ocrData.ErrorMessage?.[0]?.ErrorMessage || 'OCR processing failed';
       return json({
-        error: errMsg,
+        error: ocrData.ErrorMessage?.[0]?.ErrorMessage || 'OCR processing failed',
         exitCode: ocrData.OCRExitCode,
       }, 422);
     }
 
-    const text = (ocrData.ParsedResults?.[0]?.ParsedText || '').trim();
+    const parsed = ocrData.ParsedResults?.[0];
+    const text = (parsed?.ParsedText || '').trim();
+
     return json({
       text,
       exitCode: ocrData.OCRExitCode,

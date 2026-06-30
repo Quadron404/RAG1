@@ -57,8 +57,19 @@ export default function CameraCapture({ onCapture, onClose }) {
     if (!video || !canvas || !ready) return;
 
     haptic(16);
-    const width = video.videoWidth || 1920;
-    const height = video.videoHeight || 1080;
+    let width = video.videoWidth || 1920;
+    let height = video.videoHeight || 1080;
+
+    const MAX_DIM = 1280;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width > height) {
+        height = Math.round(height * MAX_DIM / width);
+        width = MAX_DIM;
+      } else {
+        width = Math.round(width * MAX_DIM / height);
+        height = MAX_DIM;
+      }
+    }
     canvas.width = width;
     canvas.height = height;
 
@@ -72,9 +83,9 @@ export default function CameraCapture({ onCapture, onClose }) {
 
     let base64;
     try {
-      base64 = canvas.toDataURL('image/png').split(',')[1];
+      base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
     } catch {
-      base64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+      base64 = canvas.toDataURL('image/png').split(',')[1];
     }
 
     setCaptured(true);
