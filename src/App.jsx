@@ -628,9 +628,11 @@ function CliModal({ onClose }) {
     if (extracted) {
       setHistory(h => [...h, { type: 'ocr', text: extracted }]);
     } else {
+      const dbg = result._debug;
+      const raw = dbg?.ocrRaw || JSON.stringify(result);
       setHistory(h => [...h, {
         type: 'sys',
-        text: `[!!] OCR returned no text (exitCode: ${result.exitCode} parsedCount: ${result.parsedCount} fileExitCode: ${result.fileParseExitCode})`
+        text: `[!!] OCR raw: ${raw.slice(0, 1500)}`
       }]);
       setAnalyzing(false);
       setTimeout(() => inputRef.current?.focus(), 60);
