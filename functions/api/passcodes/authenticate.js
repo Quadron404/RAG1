@@ -1,10 +1,5 @@
 import { CORS, cleanString, ensurePasscodesTable, json } from './_shared.js';
 
-/**
- * Cloudflare Pages Function - POST /api/passcodes/authenticate
- * Authenticates a used passcode by matching its registered WebAuthn credential.
- */
-
 export async function onRequestOptions() {
   return new Response(null, { status: 200, headers: CORS });
 }
@@ -29,6 +24,16 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'webauthn_credential_id is required' }, 400);
   }
 
+  let valid = false;
+  for (let i = 1; i <= 500; i++) {
+    const key = `passcode${i}`;
+    if (env[key] === passcodeId) {
+      valid = true;
+      break;
+    }
+  }
+  if (!valid) return json({ error: 'Unknown passcode' }, 404);
+
   try {
     await ensurePasscodesTable(db);
 
@@ -41,23 +46,24 @@ export async function onRequestPost({ request, env }) {
       .bind(passcodeId)
       .first();
 
-    if (!passcode) return json({ error: 'Unknown passcode' }, 404);
-    if (passcode.status === 'Flagged') {
-      return json({ error: 'Passcode is flagged and permanently denied pending administrator review' }, 403);
-    }
-    if (passcode.status === 'Unused') {
-      return json({ error: 'Passcode has not been registered with WebAuthn' }, 409);
+    if (!passcode) return json({ error: 'Passcode not registered' }, 404);
+
+    if (passcode.status === 'Flagged' || passcode.status === 'Compromised') {
+      return json({
+        error: 'Passcode is permanently denied',
+        status: passcode.status,
+      }, 403);
     }
 
     if (securityIncident) {
       await db
-        .prepare("UPDATE passcodes SET status = 'Flagged' WHERE passcode_id = ?")
+        .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
         .bind(passcodeId)
         .run();
 
       return json({
-        error: 'Security incident reported. Passcode has been flagged pending administrator review',
-        status: 'Flagged',
+        error: 'Security incident reported. Passcode has been revoked.',
+        status: 'Compromised',
       }, 403);
     }
 
@@ -66,13 +72,14 @@ export async function onRequestPost({ request, env }) {
       || !passcode.public_key
     ) {
       await db
-        .prepare("UPDATE passcodes SET status = 'Flagged' WHERE passcode_id = ?")
+        .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
         .bind(passcodeId)
         .run();
 
       return json({
-        error: 'Credential mismatch. Passcode has been flagged pending administrator review',
-        status: 'Flagged',
+        error: 'Credential mismatch. Passcode has been revoked.',
+        status: 'Compromised',
+        webauthn_credential_id: passcode.webauthn_credential_id,
       }, 403);
     }
 

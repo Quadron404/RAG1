@@ -15,7 +15,8 @@ CREATE INDEX IF NOT EXISTS idx_rag_class_section
 CREATE TABLE IF NOT EXISTS passcodes (
   passcode_id             TEXT PRIMARY KEY,
   status                  TEXT NOT NULL DEFAULT 'Unused'
-                          CHECK (status IN ('Unused', 'Used', 'Flagged')),
+                          CHECK (status IN ('Unused', 'Used', 'Flagged',
+                                            'Compromised')),
   webauthn_credential_id  TEXT UNIQUE,
   public_key              TEXT,
   CHECK (
@@ -27,9 +28,16 @@ CREATE TABLE IF NOT EXISTS passcodes (
 CREATE INDEX IF NOT EXISTS idx_passcodes_status
   ON passcodes (status);
 
--- Seed your issued passcodes before launch. All start as Unused.
--- INSERT INTO passcodes (passcode_id) VALUES ('RAG2718');
+CREATE TABLE IF NOT EXISTS sir_reports (
+  id          TEXT PRIMARY KEY,
+  reporter    TEXT NOT NULL,
+  category    TEXT NOT NULL,
+  description TEXT NOT NULL,
+  evidence    TEXT,
+  severity    TEXT NOT NULL DEFAULT 'Medium'
+              CHECK (severity IN ('Low', 'Medium', 'High', 'Critical')),
+  created_at  TEXT NOT NULL
+);
 
--- Migration from legacy schema (no class/section columns):
--- ALTER TABLE rag_entries ADD COLUMN class_num INTEGER DEFAULT 1;
--- ALTER TABLE rag_entries ADD COLUMN section TEXT DEFAULT 'A';
+CREATE INDEX IF NOT EXISTS idx_sir_created
+  ON sir_reports (created_at);

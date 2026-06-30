@@ -1,10 +1,5 @@
 import { CORS, cleanString, ensurePasscodesTable, json } from './_shared.js';
 
-/**
- * Cloudflare Pages Function - POST /api/passcodes/register
- * Registers one unused passcode to one WebAuthn credential.
- */
-
 export async function onRequestOptions() {
   return new Response(null, { status: 200, headers: CORS });
 }
@@ -28,6 +23,16 @@ export async function onRequestPost({ request, env }) {
   if (!credentialId) return json({ error: 'webauthn_credential_id is required' }, 400);
   if (!publicKey) return json({ error: 'public_key is required' }, 400);
 
+  let valid = false;
+  for (let i = 1; i <= 500; i++) {
+    const key = `passcode${i}`;
+    if (env[key] === passcodeId) {
+      valid = true;
+      break;
+    }
+  }
+  if (!valid) return json({ error: 'Unknown passcode' }, 404);
+
   try {
     await ensurePasscodesTable(db);
 
@@ -36,24 +41,32 @@ export async function onRequestPost({ request, env }) {
       .bind(passcodeId)
       .first();
 
-    if (!existing) return json({ error: 'Unknown passcode' }, 404);
-    if (existing.status === 'Flagged') {
-      return json({ error: 'Passcode is flagged and permanently denied pending administrator review' }, 403);
+    if (existing && (existing.status === 'Flagged' || existing.status === 'Compromised')) {
+      return json({ error: 'Passcode is permanently denied' }, 403);
     }
-    if (existing.status !== 'Unused') {
+    if (existing && existing.status !== 'Unused') {
       return json({ error: 'Passcode has already been registered' }, 409);
     }
 
-    await db
-      .prepare(
-        `UPDATE passcodes
-         SET status = 'Used',
-             webauthn_credential_id = ?,
-             public_key = ?
-         WHERE passcode_id = ? AND status = 'Unused'`,
-      )
-      .bind(credentialId, publicKey, passcodeId)
-      .run();
+    if (existing) {
+      await db
+        .prepare(
+          `UPDATE passcodes
+           SET status = 'Used',
+               webauthn_credential_id = ?,
+               public_key = ?
+           WHERE passcode_id = ?`,
+        )
+        .bind(credentialId, publicKey, passcodeId)
+        .run();
+    } else {
+      await db
+        .prepare(
+          'INSERT INTO passcodes (passcode_id, status, webauthn_credential_id, public_key) VALUES (?, ?, ?, ?)',
+        )
+        .bind(passcodeId, 'Used', credentialId, publicKey)
+        .run();
+    }
 
     return json({ success: true, passcode_id: passcodeId, status: 'Used' });
   } catch (err) {

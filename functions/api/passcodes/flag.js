@@ -1,10 +1,5 @@
 import { CORS, ensurePasscodesTable, json } from './_shared.js';
 
-/**
- * Cloudflare Pages Function - POST /api/passcodes/flag
- * Marks a passcode as Flagged after a security incident.
- */
-
 export async function onRequestOptions() {
   return new Response(null, { status: 200, headers: CORS });
 }
@@ -27,12 +22,12 @@ export async function onRequestPost({ request, env }) {
     await ensurePasscodesTable(db);
 
     const result = await db
-      .prepare("UPDATE passcodes SET status = 'Flagged' WHERE passcode_id = ?")
+      .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
       .bind(passcodeId)
       .run();
 
     if (!result.meta?.changes) return json({ error: 'Unknown passcode' }, 404);
-    return json({ success: true, passcode_id: passcodeId, status: 'Flagged' });
+    return json({ success: true, passcode_id: passcodeId, status: 'Compromised' });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }
