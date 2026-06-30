@@ -110,6 +110,22 @@ export default function RagKeyboard({ onKey, onBackspace, onEnter, onClose }) {
   const stableOnEnter = useCallback(() => onEnterRef.current?.(), []);
   const stableOnClose = useCallback(() => onCloseRef.current?.(), []);
 
+  useEffect(() => {
+    if (!onCloseRef.current) return;
+    const handleInteraction = (e) => {
+      const kb = document.querySelector('.rag-kb');
+      if (!kb || kb.contains(e.target)) return;
+      if (e.target.closest('input, textarea, [contenteditable]')) return;
+      onCloseRef.current?.();
+    };
+    document.addEventListener('touchstart', handleInteraction, { passive: true });
+    document.addEventListener('mousedown', handleInteraction, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('mousedown', handleInteraction);
+    };
+  }, []);
+
   const onShift = useCallback(() => {
     const now = performance.now();
     const isDoubleTap = now - lastShiftTap.current < 330;

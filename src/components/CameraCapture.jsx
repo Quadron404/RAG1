@@ -4,6 +4,21 @@ function haptic(strength = 10) {
   navigator.vibrate?.(strength);
 }
 
+function canvasToBase64(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) { reject(new Error('Failed to create image')); return; }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error('Failed to read image'));
+      reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.92);
+  });
+}
+
 export default function CameraCapture({ onCapture, onClose }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -72,19 +87,15 @@ export default function CameraCapture({ onCapture, onClose }) {
 
     setCaptured(true);
     stopStream();
-
     setAnalyzing(true);
 
     try {
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('Failed to create image');
-
-      const formData = new FormData();
-      formData.append('image', blob, 'capture.png');
+      const base64 = await canvasToBase64(canvas);
 
       const res = await fetch('/api/ocr', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
       });
 
       const data = await res.json();
