@@ -1,0 +1,11 @@
+name               = "rag-genesis"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "dist"
+
+# ── D1 Database binding ──────────────────────────────────────────────
+[[d1_databases]]
+binding       = "RAG_DB"
+database_name = "rag-genesis-db"
+database_id = "9c421cd9-627a-43ff-a188-8f7895bf570e"
+# ── Secrets (set in Cloudflare Pages dashboard) ──────────────────────
+# RAG = Groq API key for Qwen2.5-VL image analysis
