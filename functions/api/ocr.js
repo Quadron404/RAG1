@@ -41,31 +41,41 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const formData = new FormData();
+    formData.append('apikey', apiKey);
     formData.append('base64Image', imageBase64);
     formData.append('language', 'eng');
     formData.append('OCREngine', '3');
+    formData.append('isOverlayRequired', 'false');
 
-    const ocrRes = await fetch(`https://api.ocr.space/parse/image?apikey=${encodeURIComponent(apiKey)}`, {
+    const ocrRes = await fetch('https://api.ocr.space/parse/image', {
       method: 'POST',
       body: formData,
     });
 
     const ocrData = await ocrRes.json();
-
-    if (ocrData.IsErroredOnProcessing) {
-      return json({
-        error: ocrData.ErrorMessage?.[0]?.ErrorMessage || 'OCR processing failed',
-        exitCode: ocrData.OCRExitCode,
-      }, 422);
-    }
-
+    const exitCode = ocrData.OCRExitCode;
     const parsed = ocrData.ParsedResults?.[0];
     const text = (parsed?.ParsedText || '').trim();
-    const exitCode = ocrData.OCRExitCode;
+    const errorMsg = ocrData.ErrorMessage?.[0]?.ErrorMessage || '';
+    const parsedCount = ocrData.ParsedResults?.length || 0;
+    const fileExitCode = parsed?.FileParseExitCode;
+    const errDetails = parsed?.ErrorDetails || '';
+
+    if (ocrData.IsErroredOnProcessing || errorMsg) {
+      return json({
+        error: errorMsg || 'OCR processing failed',
+        exitCode,
+        parsedCount,
+        fileParseExitCode: fileExitCode,
+        errDetails,
+      }, 422);
+    }
 
     return json({
       text,
       exitCode,
+      parsedCount,
+      fileParseExitCode: fileExitCode,
       imageSize: imageBase64.length,
     });
   } catch (err) {

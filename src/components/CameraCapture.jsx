@@ -101,14 +101,19 @@ export default function CameraCapture({ onCapture, onClose }) {
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        throw new Error(data.error + (data.exitCode ? ` (exit code: ${data.exitCode})` : ''));
+        const err = new Error(data.error || 'OCR failed');
+        err.exitCode = data.exitCode;
+        err.parsedCount = data.parsedCount;
+        err.fileExitCode = data.fileParseExitCode;
+        err.errDetails = data.errDetails;
+        throw err;
       }
 
       haptic([10, 30, 10]);
-      onCapture?.(data.text || '');
+      onCapture?.(data);
     } catch (err) {
       haptic([20, 40, 20]);
-      onCapture?.(null);
+      onCapture?.({ error: err.message, exitCode: err.exitCode, parsedCount: err.parsedCount, fileExitCode: err.fileExitCode, errDetails: err.errDetails });
     }
   };
 

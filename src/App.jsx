@@ -606,33 +606,44 @@ function CliModal({ onClose }) {
     setTimeout(() => inputRef.current?.focus(), 60);
   }, [input, busy, analyzing, step, classNum, storeEntry]);
 
-  const handleImageCapture = useCallback(async (extracted) => {
+  const handleImageCapture = useCallback(async (result) => {
     setCameraOpen(false);
 
-    if (extracted === null) {
-      setHistory(h => [...h, { type: 'sys', text: '[!!] OCR analysis failed. Please try again.' }]);
+    if (!result || result.error) {
+      const errCode = result?.exitCode ? ` (exitCode: ${result.exitCode})` : '';
+      const fileCode = result?.fileExitCode ? ` fileExitCode: ${result.fileExitCode}` : '';
+      const errDetail = result?.errDetails ? ` ${result.errDetails}` : '';
+      setHistory(h => [...h, { type: 'sys', text: `[!!] OCR failed${errCode}${fileCode}${errDetail}: ${result?.error || 'unknown error'}` }]);
       setAnalyzing(false);
       setTimeout(() => inputRef.current?.focus(), 60);
       return;
     }
 
+    const extracted = result.text || '';
     setAnalyzing(true);
     setHistory(h => [...h, { type: 'sys', text: '[Image Ingest] OCR complete.' }]);
 
     await new Promise(resolve => setTimeout(resolve, 400));
 
-    setHistory(h => [
-      ...h,
-      { type: 'ocr', text: extracted || '(no text detected)' },
-    ]);
+    if (extracted) {
+      setHistory(h => [...h, { type: 'ocr', text: extracted }]);
+    } else {
+      setHistory(h => [...h, {
+        type: 'sys',
+        text: `[!!] OCR returned no text (exitCode: ${result.exitCode} parsedCount: ${result.parsedCount} fileExitCode: ${result.fileParseExitCode})`
+      }]);
+      setAnalyzing(false);
+      setTimeout(() => inputRef.current?.focus(), 60);
+      return;
+    }
 
-    if (extracted && step === 'data') {
+    if (step === 'data') {
       setInput(extracted);
       setHistory(h => [...h, {
         type: 'sys',
         text: 'Text extracted. Review and press Enter to store.',
       }]);
-    } else if (extracted) {
+    } else {
       setInput(extracted);
       setHistory(h => [...h, {
         type: 'sys',
