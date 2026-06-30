@@ -36,7 +36,7 @@ export async function onRequestPost({ request, env }) {
   const ocrForm = new FormData();
   ocrForm.append('file', image, 'capture.png');
   ocrForm.append('language', 'eng');
-  ocrForm.append('OCREngine', '2');
+  ocrForm.append('OCREngine', '3');
   ocrForm.append('isOverlayRequired', 'false');
 
   try {

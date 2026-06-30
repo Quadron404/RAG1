@@ -475,7 +475,7 @@ body {
   animation: analyzingGlow 1.8s linear infinite;
 }
 
-/* ── RAG Keyboard (performance-optimized iOS-style) ─────── */
+/* ── RAG Keyboard (GPU-optimized, no expensive CSS) ─────── */
 
 .rag-kb {
   position: fixed;
@@ -484,14 +484,12 @@ body {
   bottom: 0;
   z-index: 2000;
   padding: 8px 4px calc(7px + env(safe-area-inset-bottom, 0px));
-  background: rgba(24, 24, 28, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1e1e23;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   user-select: none;
   touch-action: manipulation;
-  will-change: transform;
+  transform: translateZ(0);
 }
 
 .rag-kb-keys { display: flex; flex-direction: column; gap: 7px; }
@@ -510,7 +508,7 @@ body {
   height: 42px;
   border: none;
   border-radius: 7px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(232, 233, 236, 0.88));
+  background: #e4e5ea;
   color: #000;
   font-size: 17px;
   font-weight: 400;
@@ -519,21 +517,24 @@ body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  will-change: transform;
+  transform: translateZ(0);
+  transition: transform 0.06s ease, opacity 0.06s ease;
 }
 
 .rag-kb-key:active {
-  background: rgba(200, 200, 205, 0.95);
-  transform: scale(0.97);
+  opacity: 0.65;
+  transform: scale(0.96);
 }
 
 .rag-kb-key--wide {
   max-width: 58px;
   font-size: 12px;
-  background: linear-gradient(180deg, rgba(190, 194, 204, 0.94), rgba(146, 151, 162, 0.90));
+  background: #c2c6ce;
 }
 
 .rag-kb-key--active {
-  background: rgba(255, 255, 255, 1);
+  background: #fff;
 }
 
 .rag-kb-key--locked {
@@ -543,7 +544,7 @@ body {
 .rag-kb-key--fn {
   max-width: 52px;
   font-size: 12px;
-  background: linear-gradient(180deg, rgba(190, 194, 204, 0.94), rgba(146, 151, 162, 0.90));
+  background: #c2c6ce;
 }
 
 .rag-kb-key--space {

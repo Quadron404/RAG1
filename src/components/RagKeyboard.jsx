@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, memo } from 'react';
+import { useCallback, useRef, useState, memo, useEffect } from 'react';
 
 const LETTER_ROWS = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -12,44 +12,13 @@ const NUMBER_ROWS = [
   ['ABC', '.', ',', '?', '!', "'", 'del'],
 ];
 
-const BOTTOM_ROW = [
-  { key: '123', label: '123', fn: true },
-  { key: 'space', label: 'space', space: true },
-  { key: 'return', label: 'return', fn: true },
-];
-
 function haptic(strength = 8) {
   navigator.vibrate?.(strength);
 }
 
-function ShiftIcon({ locked }) {
-  return (
-    <svg className="rag-kb-shift-icon" viewBox="0 0 26 26" aria-hidden="true">
-      <path d="M13 3 4.5 12h4.3v8.5h8.4V12h4.3L13 3Z" />
-      {locked && <path className="rag-kb-shift-lock" d="M8.5 23h9" />}
-    </svg>
-  );
-}
-
-const MemoShiftIcon = memo(ShiftIcon);
-
-function RagKeyboardInner({ onKey, onBackspace, onEnter, onClose, shiftMode, numbers, onShift, onNumbers }) {
+function RagKeyboardInner({ stableOnKey, stableOnBackspace, stableOnEnter, stableOnClose, shiftMode, numbers, onShift, onNumbers }) {
   const shifted = shiftMode !== 'off';
   const rows = numbers ? NUMBER_ROWS : LETTER_ROWS;
-
-  const handlePointer = useCallback((e, key) => {
-    e.preventDefault();
-    haptic();
-
-    if (key === 'shift') { onShift(); return; }
-    if (key === 'del') { onBackspace?.(); return; }
-    if (key === 'ABC') { onNumbers?.(); return; }
-    if (key === '123') { onNumbers?.(); return; }
-
-    const output = shifted && /^[a-z]$/.test(key) ? key.toUpperCase() : key;
-    onKey?.(output);
-    if (shiftMode === 'once') onShift?.();
-  }, [shifted, shiftMode, onKey, onBackspace, onShift, onNumbers]);
 
   return (
     <div className="rag-kb" onPointerDown={e => e.preventDefault()}>
@@ -62,20 +31,35 @@ function RagKeyboardInner({ onKey, onBackspace, onEnter, onClose, shiftMode, num
           >
             {row.map(key => {
               const label = shifted && /^[a-z]$/.test(key) ? key.toUpperCase() : key;
+              const isShift = key === 'shift';
               const cls = [
                 'rag-kb-key',
-                (key === 'del' || key === 'shift' || key === 'ABC') && 'rag-kb-key--wide',
-                key === 'shift' && shifted && 'rag-kb-key--active',
-                key === 'shift' && shiftMode === 'locked' && 'rag-kb-key--locked',
+                (key === 'del' || isShift || key === 'ABC') && 'rag-kb-key--wide',
+                isShift && shifted && 'rag-kb-key--active',
+                isShift && shiftMode === 'locked' && 'rag-kb-key--locked',
               ].filter(Boolean).join(' ');
               return (
                 <button
                   key={key}
                   type="button"
                   className={cls}
-                  onPointerDown={e => handlePointer(e, key)}
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    haptic();
+                    if (key === 'shift') { onShift(); return; }
+                    if (key === 'del') { stableOnBackspace(); return; }
+                    if (key === 'ABC' || key === '123') { onNumbers(); return; }
+                    const output = shifted && /^[a-z]$/.test(key) ? key.toUpperCase() : key;
+                    stableOnKey(output);
+                    if (shiftMode === 'once') onShift();
+                  }}
                 >
-                  {key === 'shift' ? <MemoShiftIcon locked={shiftMode === 'locked'} /> : label}
+                  {isShift ? (
+                    <svg className="rag-kb-shift-icon" viewBox="0 0 26 26" aria-hidden="true">
+                      <path d="M13 3 4.5 12h4.3v8.5h8.4V12h4.3L13 3Z" />
+                      {shiftMode === 'locked' && <path className="rag-kb-shift-lock" d="M8.5 23h9" />}
+                    </svg>
+                  ) : label}
                 </button>
               );
             })}
@@ -83,13 +67,13 @@ function RagKeyboardInner({ onKey, onBackspace, onEnter, onClose, shiftMode, num
         ))}
 
         <div className="rag-kb-row rag-kb-row--bottom">
-          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(); onNumbers?.(); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(); onNumbers(); }}>
             {numbers ? 'ABC' : '123'}
           </button>
-          <button type="button" className="rag-kb-key rag-kb-key--space" onPointerDown={e => { e.preventDefault(); haptic(); onKey?.(' '); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--space" onPointerDown={e => { e.preventDefault(); haptic(); stableOnKey(' '); }}>
             space
           </button>
-          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(12); onEnter?.(); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(12); stableOnEnter(); }}>
             return
           </button>
         </div>
@@ -97,8 +81,8 @@ function RagKeyboardInner({ onKey, onBackspace, onEnter, onClose, shiftMode, num
 
       <div className="rag-kb-footer">
         <span>RAG-keyboard</span>
-        {onClose && (
-          <button type="button" className="rag-kb-dismiss" onPointerDown={e => { e.preventDefault(); haptic(); onClose(); }}>v</button>
+        {stableOnClose && (
+          <button type="button" className="rag-kb-dismiss" onPointerDown={e => { e.preventDefault(); haptic(); stableOnClose(); }}>v</button>
         )}
       </div>
     </div>
@@ -112,6 +96,20 @@ export default function RagKeyboard({ onKey, onBackspace, onEnter, onClose }) {
   const [numbers, setNumbers] = useState(false);
   const lastShiftTap = useRef(0);
 
+  const onKeyRef = useRef(onKey);
+  const onBackspaceRef = useRef(onBackspace);
+  const onEnterRef = useRef(onEnter);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onKeyRef.current = onKey; });
+  useEffect(() => { onBackspaceRef.current = onBackspace; });
+  useEffect(() => { onEnterRef.current = onEnter; });
+  useEffect(() => { onCloseRef.current = onClose; });
+
+  const stableOnKey = useCallback(ch => onKeyRef.current?.(ch), []);
+  const stableOnBackspace = useCallback(() => onBackspaceRef.current?.(), []);
+  const stableOnEnter = useCallback(() => onEnterRef.current?.(), []);
+  const stableOnClose = useCallback(() => onCloseRef.current?.(), []);
+
   const onShift = useCallback(() => {
     const now = performance.now();
     const isDoubleTap = now - lastShiftTap.current < 330;
@@ -122,16 +120,14 @@ export default function RagKeyboard({ onKey, onBackspace, onEnter, onClose }) {
     });
   }, []);
 
-  const onNumbers = useCallback(() => {
-    setNumbers(n => !n);
-  }, []);
+  const onNumbers = useCallback(() => setNumbers(n => !n), []);
 
   return (
     <MemoRagKeyboardInner
-      onKey={onKey}
-      onBackspace={onBackspace}
-      onEnter={onEnter}
-      onClose={onClose}
+      stableOnKey={stableOnKey}
+      stableOnBackspace={stableOnBackspace}
+      stableOnEnter={stableOnEnter}
+      stableOnClose={stableOnClose}
       shiftMode={shiftMode}
       numbers={numbers}
       onShift={onShift}
