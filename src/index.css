@@ -599,6 +599,16 @@ body {
 
 /* ── Camera (iOS-style, no guide) ────────────────────────── */
 
+.rag-kb-slide {
+  transition: transform 0.18s ease;
+  transform: translateY(0);
+}
+.rag-kb-hidden {
+  transform: translateY(100%);
+  pointer-events: none;
+}
+.rag-kb-hidden .rag-kb { pointer-events: none; }
+
 .rag-cam {
   position: fixed;
   inset: 0;
@@ -1190,6 +1200,26 @@ body {
 
 @media (max-width: 900px) and (hover: none) {
   input, textarea { font-size: 16px !important; }
+}
+
+@media (max-width: 700px) {
+  .sd-panel { height: min(520px, 92vh); padding: 8px 10px 6px; }
+  .sd-gs-value { font-size: 13px; }
+  .sd-gs-label { font-size: 8px; }
+  .sd-global-status { padding: 3px 10px; gap: 6px; }
+  .sd-map-container { margin-bottom: 4px; }
+  .sd-cards { gap: 4px; }
+  .sd-card { padding: 5px 6px; }
+  .sd-card-header { margin-bottom: 3px; }
+  .sd-card-icon { font-size: 11px; width: 16px; }
+  .sd-card-title { font-size: 8px; }
+  .sd-card-badge { font-size: 7px; padding: 1px 4px; }
+  .sd-check-row { font-size: 8px; gap: 3px; }
+  .sd-check-pass, .sd-check-fail { width: 10px; }
+  .sd-check-value { font-size: 7px; max-width: 50px; }
+  .sd-close { padding: 4px 8px; top: 6px; right: 6px; }
+  .sd-close-icon { font-size: 10px; }
+  .sd-close-label { font-size: 8px; }
 }
 
 /* ── Status Dashboard (single-viewport, no scroll) ───── */

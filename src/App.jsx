@@ -754,13 +754,15 @@ function CliModal({ onClose }) {
         </div>
       </div>
 
-      {mobile && showKb && !cameraOpen && !sirWarning && !sirForm && (
-        <RagKeyboard
-          onKey={kbAppend}
-          onBackspace={kbBack}
-          onEnter={submit}
-          onClose={() => setShowKb(false)}
-        />
+      {mobile && !cameraOpen && !sirWarning && !sirForm && (
+        <div className={`rag-kb-slide ${showKb ? '' : 'rag-kb-hidden'}`}>
+          <RagKeyboard
+            onKey={kbAppend}
+            onBackspace={kbBack}
+            onEnter={submit}
+            onClose={() => setShowKb(false)}
+          />
+        </div>
       )}
 
       {cameraOpen && (
