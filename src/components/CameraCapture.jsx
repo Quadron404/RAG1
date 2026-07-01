@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-function haptic(strength = 10) {
-  navigator.vibrate?.(strength);
-}
-
 export default function CameraCapture({ onCapture, onClose }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -47,7 +43,6 @@ export default function CameraCapture({ onCapture, onClose }) {
   }, [facing, startCamera, stopStream]);
 
   const flip = () => {
-    haptic(12);
     setFacing(f => f === 'environment' ? 'user' : 'environment');
   };
 
@@ -56,7 +51,6 @@ export default function CameraCapture({ onCapture, onClose }) {
     const canvas = canvasRef.current;
     if (!video || !canvas || !ready) return;
 
-    haptic(16);
     let width = video.videoWidth || 1920;
     let height = video.videoHeight || 1080;
 
@@ -111,10 +105,8 @@ export default function CameraCapture({ onCapture, onClose }) {
         throw err;
       }
 
-      haptic([10, 30, 10]);
       onCapture?.(data);
     } catch (err) {
-      haptic([20, 40, 20]);
       onCapture?.({ error: err.message, exitCode: err.exitCode, parsedCount: err.parsedCount, fileExitCode: err.fileExitCode, errDetails: err.errDetails });
     }
   };
@@ -127,7 +119,7 @@ export default function CameraCapture({ onCapture, onClose }) {
           <span className="rag-cam-version">Version 2.7182.8</span>
         </div>
         {!analyzing && (
-          <button type="button" className="rag-cam-cancel" onClick={() => { haptic(); stopStream(); onClose(); }}>Cancel</button>
+          <button type="button" className="rag-cam-cancel" onClick={() => { stopStream(); onClose(); }}>Cancel</button>
         )}
       </div>
 

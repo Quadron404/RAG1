@@ -10,10 +10,6 @@ const API_URL = '/api/entries';
 const PASSCODE_API = '/api/passcodes';
 const SIR_API = '/api/sir';
 
-function haptic(strength = 8) {
-  navigator.vibrate?.(strength);
-}
-
 function bufferToBase64Url(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -47,10 +43,18 @@ async function postPasscode(path, payload) {
   return data;
 }
 
+async function fetchChallenge(passcodeId) {
+  const { challenge } = await postPasscode('challenge', { passcode_id: passcodeId });
+  return challenge;
+}
+
 async function registerPasscode(passcodeId) {
+  const challengeB64 = await fetchChallenge(passcodeId);
+  const challenge = base64UrlToBuffer(challengeB64);
+
   const credential = await navigator.credentials.create({
     publicKey: {
-      challenge: randomChallenge(),
+      challenge,
       rp: { name: 'RAG Genesis' },
       user: {
         id: new TextEncoder().encode(passcodeId),
@@ -79,14 +83,18 @@ async function registerPasscode(passcodeId) {
     passcode_id: passcodeId,
     webauthn_credential_id: bufferToBase64Url(credential.rawId),
     public_key: bufferToBase64Url(publicKeyBuffer),
+    challenge: challengeB64,
   });
 }
 
 async function authenticatePasscode(passcodeId, credentialId) {
   try {
+    const challengeB64 = await fetchChallenge(passcodeId);
+    const challenge = base64UrlToBuffer(challengeB64);
+
     const credential = await navigator.credentials.get({
       publicKey: {
-        challenge: randomChallenge(),
+        challenge,
         allowCredentials: [{
           id: base64UrlToBuffer(credentialId),
           type: 'public-key',
@@ -96,9 +104,15 @@ async function authenticatePasscode(passcodeId, credentialId) {
       },
     });
 
+    const response = credential.response;
+
     await postPasscode('authenticate', {
       passcode_id: passcodeId,
       webauthn_credential_id: bufferToBase64Url(credential.rawId),
+      challenge: challengeB64,
+      authenticator_data: bufferToBase64Url(response.authenticatorData),
+      client_data_json: bufferToBase64Url(response.clientDataJSON),
+      signature: bufferToBase64Url(response.signature),
     });
   } catch (err) {
     if (err?.name === 'NotAllowedError') {
@@ -208,7 +222,7 @@ function SecurityNotice({ passcodeId, onClose }) {
           <span className="auth-block-status-dot" />
           Status: Passcode Revoked
         </div>
-        <button type="button" className="auth-block-btn" onClick={() => { haptic(); onClose(); }}>
+        <button type="button" className="auth-block-btn" onClick={() => { onClose(); }}>
           ACKNOWLEDGE
         </button>
       </div>
@@ -243,7 +257,7 @@ function AccessBlocked({ passcodeId, onClose }) {
           <span className="auth-block-status-dot" />
           Status: Access Blocked
         </div>
-        <button type="button" className="auth-block-btn" onClick={() => { haptic(); onClose(); }}>
+        <button type="button" className="auth-block-btn" onClick={() => { onClose(); }}>
           CLOSE
         </button>
       </div>
@@ -257,7 +271,7 @@ function SirWarning({ onAgree, onClose }) {
       <div className="sir-panel">
         <div className="sir-panel-header">
           <span>SECURITY INTELLIGENCE REPORT</span>
-          <button type="button" className="sir-panel-close" onClick={() => { haptic(); onClose(); }}>x</button>
+          <button type="button" className="sir-panel-close" onClick={() => { onClose(); }}>x</button>
         </div>
         <div className="sir-panel-body">
           <h3 className="sir-warning-title">Warning & Acknowledgment</h3>
@@ -274,7 +288,7 @@ function SirWarning({ onAgree, onClose }) {
           <p className="sir-warning-consent">By clicking "I Agree", you acknowledge and accept the above terms and conditions. You confirm that you are an authorized user and that the information you submit will be accurate and truthful to the best of your knowledge.</p>
         </div>
         <div className="sir-panel-footer">
-          <button type="button" className="sir-btn sir-btn--primary" onClick={() => { haptic(); onAgree(); }}>
+          <button type="button" className="sir-btn sir-btn--primary" onClick={() => { onAgree(); }}>
             I Agree
           </button>
         </div>
@@ -308,10 +322,8 @@ function SirForm({ onSubmit, onClose }) {
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Submission failed');
-      haptic([8, 24, 8]);
       onSubmit(data);
     } catch (err) {
-      haptic([20, 40, 20]);
       alert('Submission failed: ' + err.message);
     } finally {
       setSubmitting(false);
@@ -323,7 +335,7 @@ function SirForm({ onSubmit, onClose }) {
       <div className="sir-panel">
         <div className="sir-panel-header">
           <span>Submit Security Intelligence Report</span>
-          <button type="button" className="sir-panel-close" onClick={() => { haptic(); onClose(); }}>x</button>
+          <button type="button" className="sir-panel-close" onClick={() => { onClose(); }}>x</button>
         </div>
         <div className="sir-panel-body">
           <div className="sir-field">
@@ -342,7 +354,7 @@ function SirForm({ onSubmit, onClose }) {
                   key={s}
                   type="button"
                   className={`sir-sev-btn${severity === s ? ' sir-sev-btn--active' : ''}`}
-                  onClick={() => { haptic(); setSeverity(s); }}
+                  onClick={() => { setSeverity(s); }}
                   disabled={submitting}
                 >{s}</button>
               ))}
@@ -358,7 +370,7 @@ function SirForm({ onSubmit, onClose }) {
           </div>
         </div>
         <div className="sir-panel-footer">
-          <button type="button" className="sir-btn sir-btn--secondary" onClick={() => { haptic(); onClose(); }} disabled={submitting}>Cancel</button>
+          <button type="button" className="sir-btn sir-btn--secondary" onClick={() => { onClose(); }} disabled={submitting}>Cancel</button>
           <button type="button" className="sir-btn sir-btn--primary" onClick={handleSubmit} disabled={submitting || !reporter.trim() || !category.trim() || !description.trim()}>
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
@@ -449,10 +461,8 @@ function PasscodeModal({ onSuccess, onCompromised }) {
         throw new Error('Passcode is not available for authentication');
       }
 
-      haptic([8, 24, 8]);
       onSuccess();
     } catch (err) {
-      haptic([20, 40, 20]);
       setError(err.message || 'Authentication failed');
       setShake(true);
       setInput('');
@@ -489,18 +499,20 @@ function PasscodeModal({ onSuccess, onCompromised }) {
 
         {error && <p className="pass-error">{error}</p>}
 
-        <button type="button" className="pass-btn" onClick={() => { haptic(); attempt(); }} disabled={busy}>
+        <button type="button" className="pass-btn" onClick={attempt} disabled={busy}>
           {busy ? 'Verifying' : 'Unlock'}
         </button>
       </div>
 
-      {mobile && showKb && (
-        <RagKeyboard
-          onKey={kbAppend}
-          onBackspace={kbBack}
-          onEnter={attempt}
-          onClose={() => setShowKb(false)}
-        />
+      {mobile && (
+        <div style={{ display: showKb ? '' : 'none' }}>
+          <RagKeyboard
+            onKey={kbAppend}
+            onBackspace={kbBack}
+            onEnter={attempt}
+            onClose={() => setShowKb(false)}
+          />
+        </div>
       )}
     </div>
   );
@@ -736,7 +748,7 @@ function CliModal({ onClose }) {
               <button
                 type="button"
                 className="cli-action-btn"
-                onClick={() => { haptic(); setCameraOpen(true); }}
+                onClick={() => { setCameraOpen(true); }}
                 disabled={busy || analyzing}
               >
                 Image Ingest
@@ -744,7 +756,7 @@ function CliModal({ onClose }) {
               <button
                 type="button"
                 className="cli-action-btn cli-action-btn--primary"
-                onClick={() => { haptic(); submit(); }}
+                onClick={submit}
                 disabled={busy || analyzing}
               >
                 ENTER
@@ -755,7 +767,7 @@ function CliModal({ onClose }) {
       </div>
 
       {mobile && !cameraOpen && !sirWarning && !sirForm && (
-        <div className={`rag-kb-slide ${showKb ? '' : 'rag-kb-hidden'}`}>
+        <div style={{ display: showKb ? '' : 'none' }}>
           <RagKeyboard
             onKey={kbAppend}
             onBackspace={kbBack}
@@ -940,7 +952,7 @@ RAG-Genesis is a controlled administrative reporting system. Unauthorized access
           type="button"
           className="enter-data-btn"
           onClick={() => {
-            haptic();
+
             if (!locked) setCliOpen(true);
           }}
           disabled={locked}
@@ -1013,7 +1025,7 @@ function PrivacyPopup({ onAgree }) {
             <p style={{ color: 'rgba(255,255,255,0.78)', fontSize: '12px', lineHeight: '1.7', marginBottom: '14px' }}><strong>Security:</strong> Reasonable security measures are employed to protect your data. However, no electronic system can guarantee absolute security.</p>
           </div>
         </div>
-        <button type="button" className="policy-agree" onClick={() => { haptic(); onAgree(); }}>
+        <button type="button" className="policy-agree" onClick={onAgree}>
           I Agree
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { CORS, cleanString, ensurePasscodesTable, json } from './_shared.js';
+import { CORS, cleanString, ensurePasscodesTable, json, verifyChallenge } from './_shared.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 200, headers: CORS });
@@ -18,10 +18,12 @@ export async function onRequestPost({ request, env }) {
   const passcodeId = cleanString(body.passcode_id);
   const credentialId = cleanString(body.webauthn_credential_id);
   const publicKey = cleanString(body.public_key);
+  const challenge = cleanString(body.challenge);
 
   if (!passcodeId) return json({ error: 'passcode_id is required' }, 400);
   if (!credentialId) return json({ error: 'webauthn_credential_id is required' }, 400);
   if (!publicKey) return json({ error: 'public_key is required' }, 400);
+  if (!challenge) return json({ error: 'challenge is required' }, 400);
 
   let valid = false;
   for (let i = 1; i <= 500; i++) {
@@ -35,6 +37,9 @@ export async function onRequestPost({ request, env }) {
 
   try {
     await ensurePasscodesTable(db);
+
+    const chalValid = await verifyChallenge(db, passcodeId, challenge);
+    if (!chalValid) return json({ error: 'Challenge expired or invalid' }, 403);
 
     const existing = await db
       .prepare('SELECT status FROM passcodes WHERE passcode_id = ?')
@@ -54,7 +59,8 @@ export async function onRequestPost({ request, env }) {
           `UPDATE passcodes
            SET status = 'Used',
                webauthn_credential_id = ?,
-               public_key = ?
+               public_key = ?,
+               signature_counter = 0
            WHERE passcode_id = ?`,
         )
         .bind(credentialId, publicKey, passcodeId)
@@ -62,7 +68,7 @@ export async function onRequestPost({ request, env }) {
     } else {
       await db
         .prepare(
-          'INSERT INTO passcodes (passcode_id, status, webauthn_credential_id, public_key) VALUES (?, ?, ?, ?)',
+          'INSERT INTO passcodes (passcode_id, status, webauthn_credential_id, public_key, signature_counter) VALUES (?, ?, ?, ?, 0)',
         )
         .bind(passcodeId, 'Used', credentialId, publicKey)
         .run();

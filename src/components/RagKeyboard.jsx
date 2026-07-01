@@ -12,10 +12,6 @@ const NUMBER_ROWS = [
   ['ABC', '.', ',', '?', '!', "'", 'del'],
 ];
 
-function haptic(strength = 8) {
-  navigator.vibrate?.(strength);
-}
-
 function RagKeyboardInner({ stableOnKey, stableOnBackspace, stableOnEnter, stableOnClose, shiftMode, numbers, onShift, onNumbers }) {
   const shifted = shiftMode !== 'off';
   const rows = numbers ? NUMBER_ROWS : LETTER_ROWS;
@@ -45,7 +41,6 @@ function RagKeyboardInner({ stableOnKey, stableOnBackspace, stableOnEnter, stabl
                   className={cls}
                   onPointerDown={e => {
                     e.preventDefault();
-                    haptic();
                     if (key === 'shift') { onShift(); return; }
                     if (key === 'del') { stableOnBackspace(); return; }
                     if (key === 'ABC' || key === '123') { onNumbers(); return; }
@@ -67,13 +62,13 @@ function RagKeyboardInner({ stableOnKey, stableOnBackspace, stableOnEnter, stabl
         ))}
 
         <div className="rag-kb-row rag-kb-row--bottom">
-          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(); onNumbers(); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); onNumbers(); }}>
             {numbers ? 'ABC' : '123'}
           </button>
-          <button type="button" className="rag-kb-key rag-kb-key--space" onPointerDown={e => { e.preventDefault(); haptic(); stableOnKey(' '); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--space" onPointerDown={e => { e.preventDefault(); stableOnKey(' '); }}>
             space
           </button>
-          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); haptic(12); stableOnEnter(); }}>
+          <button type="button" className="rag-kb-key rag-kb-key--fn" onPointerDown={e => { e.preventDefault(); stableOnEnter(); }}>
             return
           </button>
         </div>
@@ -82,7 +77,7 @@ function RagKeyboardInner({ stableOnKey, stableOnBackspace, stableOnEnter, stabl
       <div className="rag-kb-footer">
         <span>RAG-keyboard</span>
         {stableOnClose && (
-          <button type="button" className="rag-kb-dismiss" onPointerDown={e => { e.preventDefault(); haptic(); stableOnClose(); }}>v</button>
+          <button type="button" className="rag-kb-dismiss" onPointerDown={e => { e.preventDefault(); stableOnClose(); }}>v</button>
         )}
       </div>
     </div>

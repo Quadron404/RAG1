@@ -599,16 +599,6 @@ body {
 
 /* ── Camera (iOS-style, no guide) ────────────────────────── */
 
-.rag-kb-slide {
-  transition: transform 0.18s ease;
-  transform: translateY(0);
-}
-.rag-kb-hidden {
-  transform: translateY(100%);
-  pointer-events: none;
-}
-.rag-kb-hidden .rag-kb { pointer-events: none; }
-
 .rag-cam {
   position: fixed;
   inset: 0;

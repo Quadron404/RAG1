@@ -1,4 +1,4 @@
-import { CORS, cleanString, ensurePasscodesTable, json } from './_shared.js';
+import { CORS, cleanString, ensurePasscodesTable, json, verifyChallenge, verifyWebAuthnSignature } from './_shared.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 200, headers: CORS });
@@ -17,6 +17,10 @@ export async function onRequestPost({ request, env }) {
 
   const passcodeId = cleanString(body.passcode_id);
   const credentialId = cleanString(body.webauthn_credential_id);
+  const challenge = cleanString(body.challenge);
+  const authenticatorData = cleanString(body.authenticator_data);
+  const clientDataJSON = cleanString(body.client_data_json);
+  const signature = cleanString(body.signature);
   const securityIncident = body.security_incident === true;
 
   if (!passcodeId) return json({ error: 'passcode_id is required' }, 400);
@@ -39,7 +43,7 @@ export async function onRequestPost({ request, env }) {
 
     const passcode = await db
       .prepare(
-        `SELECT status, webauthn_credential_id, public_key
+        `SELECT status, webauthn_credential_id, public_key, signature_counter
          FROM passcodes
          WHERE passcode_id = ?`,
       )
@@ -82,6 +86,44 @@ export async function onRequestPost({ request, env }) {
         webauthn_credential_id: passcode.webauthn_credential_id,
       }, 403);
     }
+
+    if (!authenticatorData || !clientDataJSON || !signature || !challenge) {
+      return json({ error: 'Missing WebAuthn assertion data for verification' }, 400);
+    }
+
+    const chalValid = await verifyChallenge(db, passcodeId, challenge);
+    if (!chalValid) {
+      await db
+        .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
+        .bind(passcodeId)
+        .run();
+      return json({
+        error: 'Challenge verification failed. Passcode has been revoked.',
+        status: 'Compromised',
+      }, 403);
+    }
+
+    const sigValid = await verifyWebAuthnSignature(
+      passcode.public_key,
+      authenticatorData,
+      clientDataJSON,
+      signature,
+    );
+    if (!sigValid) {
+      await db
+        .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
+        .bind(passcodeId)
+        .run();
+      return json({
+        error: 'WebAuthn signature verification failed. Passcode has been revoked.',
+        status: 'Compromised',
+      }, 403);
+    }
+
+    await db
+      .prepare('UPDATE passcodes SET signature_counter = signature_counter + 1 WHERE passcode_id = ?')
+      .bind(passcodeId)
+      .run();
 
     return json({ success: true, passcode_id: passcodeId, status: 'Used' });
   } catch (err) {
