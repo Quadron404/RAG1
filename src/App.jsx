@@ -2,6 +2,7 @@
 import RagKeyboard from './components/RagKeyboard.jsx';
 import CameraCapture from './components/CameraCapture.jsx';
 import AnalyzingBar from './components/AnalyzingBar.jsx';
+import StatusDashboard from './components/StatusDashboard.jsx';
 import { useIsMobile } from './hooks/useIsMobile.js';
 import { parseClass, parseSection } from './utils/classParser.js';
 
@@ -1022,6 +1023,7 @@ export default function App() {
   const [authed, setAuthed] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [compromisedData, setCompromisedData] = useState(null);
+  const [showStatus, setShowStatus] = useState(false);
 
   return (
     <>
@@ -1030,6 +1032,11 @@ export default function App() {
       {compromisedData && compromisedData.type === 'original' && <SecurityNotice passcodeId={compromisedData.passcodeId} onClose={() => setCompromisedData(null)} />}
       {compromisedData && compromisedData.type === 'unauthorized' && <AccessBlocked passcodeId={compromisedData.passcodeId} onClose={() => setCompromisedData(null)} />}
       {authed && privacyOpen && <PrivacyPopup onAgree={() => setPrivacyOpen(false)} />}
+      <div className="status-trigger" onClick={() => setShowStatus(true)}>
+        <span className="status-trigger-dot" style={{ background: '#00ff88', boxShadow: '0 0 8px #00ff88' }} />
+        <span className="status-trigger-label">Status</span>
+      </div>
+      {showStatus && <StatusDashboard onClose={() => setShowStatus(false)} />}
     </>
   );
 }

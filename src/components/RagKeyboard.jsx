@@ -117,6 +117,7 @@ export default function RagKeyboard({ onKey, onBackspace, onEnter, onClose }) {
       if (!kb || kb.contains(e.target)) return;
       if (e.target.closest('input, textarea, [contenteditable]')) return;
       onCloseRef.current?.();
+      document.activeElement?.blur();
     };
     document.addEventListener('touchstart', handleInteraction, { passive: true });
     document.addEventListener('mousedown', handleInteraction, { passive: true });
