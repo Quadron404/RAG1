@@ -797,6 +797,11 @@ body {
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.54);
   display: flex;
   flex-direction: column;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-weight: 500;
 }
 
 .policy-card--large {
@@ -846,7 +851,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-family: 'Courier New', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   letter-spacing: 3px;
   text-transform: uppercase;
   flex-shrink: 0;
@@ -862,7 +867,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Courier New', monospace;
 }
 
 .auth-block-content {
@@ -876,6 +880,11 @@ body {
   max-width: 420px;
   width: 90vw;
   text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-weight: 500;
 }
 
 .auth-block-logo {
@@ -953,7 +962,7 @@ body {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
   color: #fff;
-  font-family: 'Courier New', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   letter-spacing: 5px;
   padding: 12px 32px;
@@ -978,7 +987,6 @@ body {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
-  font-family: 'Courier New', monospace;
 }
 
 .sir-panel {
@@ -995,6 +1003,11 @@ body {
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   animation: fadeIn 0.2s ease;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-weight: 500;
 }
 
 .sir-panel-header {
@@ -1128,7 +1141,7 @@ body {
 .sir-btn {
   padding: 10px 20px;
   border-radius: 6px;
-  font-family: 'Courier New', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -1222,6 +1235,11 @@ body {
   animation: sdSlideUp 0.25s ease;
   display: flex; flex-direction: column;
   overflow: hidden;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-weight: 500;
 }
 @keyframes sdSlideUp { from { transform:translateY(20px);opacity:0 } to { transform:translateY(0);opacity:1 } }
 
@@ -1336,3 +1354,16 @@ body {
   animation: sdPulse 1.8s ease-in-out infinite;
 }
 .status-trigger-label { font-size: 10px; color: #888; font-family: monospace; letter-spacing: 1px; }
+
+/* IBM Plex Mono heading weights */
+.sd-gs-value, .sd-card-title, .sd-check-label,
+.sd-card-header, .sd-close-label { font-weight: 600; }
+
+.policy-card h1, .policy-card h2, .policy-card h3,
+.policy-card h4, .policy-titlebar { font-weight: 600; }
+
+.sir-panel h2, .sir-panel h3,
+.sir-panel .sir-warning-title,
+.sir-panel-header { font-weight: 600; }
+
+.auth-block-title { font-weight: 700; }
