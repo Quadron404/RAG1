@@ -24,9 +24,13 @@ export async function onRequestPost({ request, env }) {
   const db = env.RAG_DB;
   if (!db) return json({ error: 'D1 binding RAG_DB not configured' }, 500);
 
-  let content, classNum, section;
+  let content, classNum, section, passcode_id;
   try {
-    ({ content, class: classNum, section } = await request.json());
+    const body = await request.json();
+    content = body.content;
+    classNum = body.class;
+    section = body.section;
+    passcode_id = typeof body.passcode_id === 'string' ? body.passcode_id.trim() : '';
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
@@ -45,18 +49,43 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'section must be a single letter A-Z' }, 400);
   }
 
+  if (!passcode_id) {
+    return json({ error: 'passcode_id is required' }, 400);
+  }
+
+  try {
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS rag_entries (
+        id          TEXT PRIMARY KEY,
+        class_num   INTEGER NOT NULL CHECK (class_num BETWEEN 1 AND 12),
+        section     TEXT    NOT NULL CHECK (section GLOB '[A-Z]'),
+        content     TEXT    NOT NULL,
+        passcode_id TEXT    NOT NULL,
+        created_at  TEXT    NOT NULL
+      )`,
+    ).run();
+  } catch {
+    /* table already exists */
+  }
+
+  try {
+    await db.prepare('ALTER TABLE rag_entries ADD COLUMN passcode_id TEXT NOT NULL DEFAULT \'\'').run();
+  } catch {
+    /* column already exists */
+  }
+
   const id        = crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
   try {
     await db
       .prepare(
-        'INSERT INTO rag_entries (id, class_num, section, content, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO rag_entries (id, class_num, section, content, passcode_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .bind(id, cls, sec, content.trim(), createdAt)
+      .bind(id, cls, sec, content.trim(), passcode_id, createdAt)
       .run();
 
-    return json({ success: true, id, class: cls, section: sec, created_at: createdAt });
+    return json({ success: true, id, class: cls, section: sec, passcode_id, created_at: createdAt });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }

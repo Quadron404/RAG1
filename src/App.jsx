@@ -303,7 +303,7 @@ function SirWarning({ onAgree, onClose }) {
   );
 }
 
-function SirForm({ onSubmit, onClose }) {
+function SirForm({ onSubmit, onClose, passcodeId }) {
   const [reporter, setReporter] = useState('');
   const [category, setCategory] = useState('');
   const [severity, setSeverity] = useState('Medium');
@@ -324,6 +324,7 @@ function SirForm({ onSubmit, onClose }) {
           severity,
           description: description.trim(),
           evidence: evidence.trim(),
+          passcode_id: passcodeId,
         }),
       });
       const data = await res.json();
@@ -467,7 +468,7 @@ function PasscodeModal({ onSuccess, onCompromised }) {
         throw new Error('Passcode is not available for authentication');
       }
 
-      onSuccess();
+      onSuccess(passcodeId);
     } catch (err) {
       if (err.passcodeStatus === 'Compromised' || err.passcodeStatus === 'Flagged' || err.isCompromised) {
         onCompromised(passcodeId, 'unauthorized');
@@ -528,7 +529,7 @@ function PasscodeModal({ onSuccess, onCompromised }) {
   );
 }
 
-function CliModal({ onClose }) {
+function CliModal({ onClose, passcodeId }) {
   const mobile = useIsMobile();
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
@@ -567,7 +568,7 @@ function CliModal({ onClose }) {
     setUploadStatus({ lines: [{ type: 'info', text: 'Preparing request...' }] });
 
     const startTime = performance.now();
-    const payload = JSON.stringify({ content: text, class: classNum, section });
+    const payload = JSON.stringify({ content: text, class: classNum, section, passcode_id: passcodeId });
     const bodyBlob = new Blob([payload], { type: 'application/json' });
     const bodySize = bodyBlob.size;
     const isLarge = bodySize > 1024;
@@ -887,13 +888,14 @@ function CliModal({ onClose }) {
             setHistory(h => [...h, { type: 'sys', text: `[SIR] Report submitted successfully. Reference: ${data.id}` }]);
           }}
           onClose={() => setSirForm(false)}
+          passcodeId={passcodeId}
         />
       )}
     </>
   );
 }
 
-function MainPage({ locked }) {
+function MainPage({ locked, passcodeId }) {
   const [cliOpen, setCliOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
@@ -1092,7 +1094,7 @@ RAG-Genesis is a controlled administrative reporting system. Unauthorized access
         </div>
       )}
 
-      {cliOpen && <CliModal onClose={() => setCliOpen(false)} />}
+      {cliOpen && <CliModal onClose={() => setCliOpen(false)} passcodeId={passcodeId} />}
     </div>
   );
 }
@@ -1124,6 +1126,7 @@ function PrivacyPopup({ onAgree }) {
 
 export default function App() {
   const [authed, setAuthed] = useState(false);
+  const [authedPasscode, setAuthedPasscode] = useState(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [compromisedData, setCompromisedData] = useState(null);
   const [showStatus, setShowStatus] = useState(false);
@@ -1138,8 +1141,8 @@ export default function App() {
 
   return (
     <>
-      <MainPage locked={!authed} />
-      {!authed && !compromisedData && <PasscodeModal onSuccess={() => { setAuthed(true); setPrivacyOpen(true); }} onCompromised={(id, type) => setCompromisedData({ passcodeId: id, type })} />}
+      <MainPage locked={!authed} passcodeId={authedPasscode} />
+      {!authed && !compromisedData && <PasscodeModal onSuccess={(id) => { setAuthedPasscode(id); setAuthed(true); setPrivacyOpen(true); }} onCompromised={(id, type) => setCompromisedData({ passcodeId: id, type })} />}
       {compromisedData && compromisedData.type === 'original' && <SecurityNotice passcodeId={compromisedData.passcodeId} onClose={() => setCompromisedData(null)} />}
       {compromisedData && compromisedData.type === 'unauthorized' && <AccessBlocked passcodeId={compromisedData.passcodeId} onClose={() => setCompromisedData(null)} />}
       {authed && privacyOpen && <PrivacyPopup onAgree={() => setPrivacyOpen(false)} />}

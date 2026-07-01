@@ -2,11 +2,12 @@
 -- wrangler d1 execute rag-genesis-db --remote --file=d1-schema.sql
 
 CREATE TABLE IF NOT EXISTS rag_entries (
-  id         TEXT    PRIMARY KEY,
-  class_num  INTEGER NOT NULL CHECK (class_num BETWEEN 1 AND 12),
-  section    TEXT    NOT NULL CHECK (section GLOB '[A-Z]'),
-  content    TEXT    NOT NULL,
-  created_at TEXT    NOT NULL
+  id          TEXT    PRIMARY KEY,
+  class_num   INTEGER NOT NULL CHECK (class_num BETWEEN 1 AND 12),
+  section     TEXT    NOT NULL CHECK (section GLOB '[A-Z]'),
+  content     TEXT    NOT NULL,
+  passcode_id TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_rag_class_section
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS sir_reports (
   evidence    TEXT,
   severity    TEXT NOT NULL DEFAULT 'Medium'
               CHECK (severity IN ('Low', 'Medium', 'High', 'Critical')),
+  passcode_id TEXT NOT NULL,
   created_at  TEXT NOT NULL
 );
 
