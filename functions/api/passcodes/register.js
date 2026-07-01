@@ -39,7 +39,7 @@ export async function onRequestPost({ request, env }) {
     await ensurePasscodesTable(db);
 
     const chalValid = await verifyChallenge(db, passcodeId, challenge);
-    if (!chalValid) return json({ error: 'Challenge expired or invalid' }, 403);
+    if (chalValid !== 'ok') return json({ error: 'Challenge expired or invalid. Please try again.' }, 403);
 
     const existing = await db
       .prepare('SELECT status FROM passcodes WHERE passcode_id = ?')
@@ -47,7 +47,7 @@ export async function onRequestPost({ request, env }) {
       .first();
 
     if (existing && (existing.status === 'Flagged' || existing.status === 'Compromised')) {
-      return json({ error: 'Passcode is permanently denied' }, 403);
+      return json({ error: 'Passcode is permanently denied', status: existing.status }, 403);
     }
     if (existing && existing.status !== 'Unused') {
       return json({ error: 'Passcode has already been registered' }, 409);

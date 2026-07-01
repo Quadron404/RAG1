@@ -22,6 +22,15 @@ export async function onRequestPost({ request, env }) {
 
   try {
     await ensurePasscodesTable(db);
+
+    const existing = await db
+      .prepare('SELECT status FROM passcodes WHERE passcode_id = ?')
+      .bind(passcodeId)
+      .first();
+    if (existing && (existing.status === 'Flagged' || existing.status === 'Compromised')) {
+      return json({ error: 'Passcode is permanently denied', status: existing.status }, 403);
+    }
+
     const challenge = generateChallenge();
     await storeChallenge(db, passcodeId, challenge);
     return json({ challenge });

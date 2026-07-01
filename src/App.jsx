@@ -39,7 +39,11 @@ async function postPasscode(path, payload) {
     body: JSON.stringify(payload),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(data.error || 'Passcode request failed');
+  if (!res.ok || data.error) {
+    const err = new Error(data.error || 'Passcode request failed');
+    err.passcodeStatus = data.status;
+    throw err;
+  }
   return data;
 }
 
@@ -120,7 +124,9 @@ async function authenticatePasscode(passcodeId, credentialId) {
         passcode_id: passcodeId,
         security_incident: true,
       });
-      throw new Error('WebAuthn verification was cancelled or unavailable on this device');
+      const e = new Error('WebAuthn verification was cancelled');
+      e.isCompromised = true;
+      throw e;
     }
     throw err;
   }
@@ -463,6 +469,10 @@ function PasscodeModal({ onSuccess, onCompromised }) {
 
       onSuccess();
     } catch (err) {
+      if (err.passcodeStatus === 'Compromised' || err.passcodeStatus === 'Flagged' || err.isCompromised) {
+        onCompromised(passcodeId, 'unauthorized');
+        return;
+      }
       setError(err.message || 'Authentication failed');
       setShake(true);
       setInput('');

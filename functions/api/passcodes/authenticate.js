@@ -92,15 +92,18 @@ export async function onRequestPost({ request, env }) {
     }
 
     const chalValid = await verifyChallenge(db, passcodeId, challenge);
-    if (!chalValid) {
-      await db
-        .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
-        .bind(passcodeId)
-        .run();
-      return json({
-        error: 'Challenge verification failed. Passcode has been revoked.',
-        status: 'Compromised',
-      }, 403);
+    if (chalValid !== 'ok') {
+      if (chalValid === 'invalid') {
+        await db
+          .prepare("UPDATE passcodes SET status = 'Compromised' WHERE passcode_id = ?")
+          .bind(passcodeId)
+          .run();
+        return json({
+          error: 'Challenge verification failed. Passcode has been revoked.',
+          status: 'Compromised',
+        }, 403);
+      }
+      return json({ error: 'Challenge expired. Please try again.' }, 403);
     }
 
     const sigValid = await verifyWebAuthnSignature(

@@ -153,11 +153,11 @@ export async function verifyChallenge(db, passcodeId, challenge) {
     .prepare('SELECT challenge, created_at FROM webauthn_challenges WHERE passcode_id = ?')
     .bind(passcodeId)
     .first();
-  if (!row) return false;
-  if (row.challenge !== challenge) return false;
-  if (Date.now() - row.created_at > 300000) return false;
+  if (!row) return 'invalid';
+  if (row.challenge !== challenge) return 'invalid';
+  if (Date.now() - row.created_at > 300000) return 'expired';
   await db.prepare('DELETE FROM webauthn_challenges WHERE passcode_id = ?').bind(passcodeId).run();
-  return true;
+  return 'ok';
 }
 
 export async function ensurePasscodesTable(db) {
