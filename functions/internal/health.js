@@ -8,9 +8,7 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
-export async function onRequest({ request, env }) {
-  const cf = request.cf || {};
-
+export async function onRequestGet({ env }) {
   let dbOk = false;
   let dbLatency = null;
   let errorMsg = null;
@@ -25,11 +23,8 @@ export async function onRequest({ request, env }) {
 
   return new Response(JSON.stringify({
     status: dbOk ? 'ok' : 'error',
-    uptime: process?.uptime ? Math.floor(process.uptime()) : null,
     dbConnected: dbOk,
     dbLatency,
-    colo: cf.colo || 'UNKNOWN',
-    country: cf.country || null,
     timestamp: new Date().toISOString(),
     error: errorMsg,
   }), { status: dbOk ? 200 : 503, headers: { ...CORS, 'Content-Type': 'application/json' } });
