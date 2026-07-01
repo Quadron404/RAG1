@@ -1024,6 +1024,14 @@ export default function App() {
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [compromisedData, setCompromisedData] = useState(null);
   const [showStatus, setShowStatus] = useState(false);
+  const statusShownRef = useRef(false);
+
+  useEffect(() => {
+    if (authed && !privacyOpen && !compromisedData && !statusShownRef.current) {
+      statusShownRef.current = true;
+      setShowStatus(true);
+    }
+  }, [authed, privacyOpen, compromisedData]);
 
   return (
     <>

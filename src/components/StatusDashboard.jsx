@@ -92,6 +92,20 @@ export default function StatusDashboard({ onClose }) {
     getBrowserLocation().then(loc => { if (mountedRef.current) setBrowserPos(loc); });
   }, []);
 
+  function lineColor(edgeOk, backOk) {
+    if (edgeOk === false || backOk === false) return '#ff3344';
+    if (edgeData?.latency && edgeData.latency > 300) return '#ffcc00';
+    return '#00ff88';
+  }
+
+  function lineSpeed() {
+    const lat = edgeData?.latency;
+    if (!lat || lat > 500) return '0s';
+    if (lat > 300) return '1.5s';
+    if (lat > 150) return '0.8s';
+    return '0.4s';
+  }
+
   const updateMapNodes = useCallback(() => {
     const map = mapInstance.current;
     if (!map) return;
@@ -120,13 +134,21 @@ export default function StatusDashboard({ onClose }) {
       if (browser && edge) pairs.push([browser, edge]);
       if (edge && host) pairs.push([edge, host]);
       const latlngs = pairs.map(pair => [L.latLng(pair[0].lat, pair[0].lon), L.latLng(pair[1].lat, pair[1].lon)]);
-      const allOk = pairs.every(pair => pair[0].color === '#00ff88' && pair[1].color === '#00ff88');
-      linesRef.current = L.polyline(latlngs.flat(), {
-        color: allOk ? '#00ff88' : '#ff3344',
-        weight: 2,
-        opacity: 0.6,
-        dashArray: '6 6',
-      }).addTo(map);
+      const lines = [];
+      pairs.forEach((pair, i) => {
+        const c = lineColor(edgeData?.healthy, backendData?.healthy);
+        const s = lineSpeed();
+        const ln = L.polyline([L.latLng(pair[0].lat, pair[0].lon), L.latLng(pair[1].lat, pair[1].lon)], {
+          color: c, weight: 2, opacity: 0.7, dashArray: '8 6',
+        }).addTo(map);
+        const el = ln.getElement();
+        if (el) {
+          el.style.animation = s === '0s' ? 'none' : `sdLineDash ${s} linear infinite`;
+          el.style.strokeDasharray = '8 6';
+        }
+        lines.push(ln);
+      });
+      linesRef.current = L.featureGroup(lines);
     }
 
     if (positions.length > 0) {
@@ -275,7 +297,7 @@ export default function StatusDashboard({ onClose }) {
   return (
     <div className="sd-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="sd-panel">
-        <button type="button" className="sd-close" onClick={onClose}>✕</button>
+        <button type="button" className="sd-close" onClick={onClose}><span className="sd-close-icon">✕</span> <span className="sd-close-label">CLOSE</span></button>
 
         <div className="sd-global-status" style={{ borderColor: globalColor }}>
           <span className="sd-gs-label">SYSTEM STATUS</span>
