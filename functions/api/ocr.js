@@ -22,11 +22,11 @@ export async function onRequestPost({ request, env }) {
   }
 
   let imageBase64;
-  let size;
+  let imageType = 'image/jpeg';
   try {
     const body = await request.json();
     imageBase64 = typeof body.image === 'string' ? body.image.trim() : '';
-    size = body.size || 0;
+    if (body.type === 'image/png') imageType = 'image/png';
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
@@ -40,8 +40,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const mime = body.type === 'image/png' ? 'image/png' : 'image/jpeg';
-    const dataUri = `data:${mime};base64,${imageBase64}`;
+    const dataUri = `data:${imageType};base64,${imageBase64}`;
 
     const formData = new FormData();
     formData.append('base64Image', dataUri);
