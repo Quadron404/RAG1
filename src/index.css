@@ -354,38 +354,29 @@ body {
 .cli-prompt { color: #666; flex-shrink: 0; }
 .cli-sys    { color: #888; margin-bottom: 4px; font-size: 12px; }
 .cli-ocr    { color: #ccc; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
-.cli-ok     { color: #00cc44; margin-left: 2px; font-size: 12px; }
-.cli-err    { color: #888; margin-left: 2px; font-size: 12px; }
+.cli-ok     { color: #0f0; margin-left: 2px; font-size: 12px; margin-top: 2px; }
+.cli-err    { color: #f33; margin-left: 2px; font-size: 12px; margin-top: 2px; }
 .cli-line   { margin-bottom: 6px; }
 
-.cli-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 2px 0 4px 2px;
+.cli-upload-status {
+  margin: 4px 0 6px 2px;
+  font-size: 12px;
+  line-height: 1.7;
 }
-
-.cli-progress-bar {
-  flex: 1;
-  max-width: 200px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
+.cli-ul-progress,
+.cli-ul-info {
+  color: rgba(255,255,255,0.7);
 }
-
-.cli-progress-fill {
-  display: block;
-  height: 100%;
-  background: #00cc44;
-  border-radius: 3px;
-  transition: width 60ms linear;
+.cli-ul-kv {
+  color: rgba(255,255,255,0.75);
 }
-
-.cli-progress-pct {
-  color: #aaa;
-  font-size: 11px;
-  min-width: 32px;
+.cli-ul-success {
+  color: #0f0;
+  margin-top: 2px;
+}
+.cli-ul-error {
+  color: #f33;
+  margin-top: 2px;
 }
 
 .cli-input-row {

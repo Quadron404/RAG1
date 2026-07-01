@@ -533,7 +533,7 @@ function CliModal({ onClose }) {
   const [sirForm, setSirForm] = useState(false);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
-  const [uploadProgress, setUploadProgress] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null);
 
   useEffect(() => {
     setHistory([{ type: 'sys', text: 'Enter class (1-12), e.g. 5 or 5th. Type SIR to file a Security Intelligence Report.' }]);
@@ -545,34 +545,106 @@ function CliModal({ onClose }) {
   }, [mobile]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [history, analyzing]);
 
-  useEffect(() => {
-    if (uploadProgress === null) return;
-    if (uploadProgress >= 100) {
-      const t = setTimeout(() => setUploadProgress(null), 400);
-      return () => clearTimeout(t);
-    }
-    const id = setTimeout(() => setUploadProgress(Math.min(uploadProgress + 5, 100)), 60);
-    return () => clearTimeout(id);
-  }, [uploadProgress]);
+  function fmtBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(2) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
 
   const storeEntry = useCallback(async (text) => {
     const idx = history.length;
-    setHistory(h => [...h, { type: 'cmd', text, status: 'uploading' }]);
-    setUploadProgress(0);
-    try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, class: classNum, section }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Failed');
-      setUploadProgress(100);
-      setHistory(h => h.map((e, i) => i === idx ? { ...e, status: 'ok' } : e));
-    } catch {
-      setUploadProgress(null);
-      setHistory(h => h.map((e, i) => i === idx ? { ...e, status: 'err' } : e));
+    setHistory(h => [...h, { type: 'cmd', text, status: 'uploading', uploadResult: null }]);
+    setUploadStatus({ lines: [{ type: 'info', text: 'Preparing request...' }] });
+
+    const startTime = performance.now();
+    const payload = JSON.stringify({ content: text, class: classNum, section });
+    const bodyBlob = new Blob([payload], { type: 'application/json' });
+    const bodySize = bodyBlob.size;
+    const isLarge = bodySize > 1024;
+
+    const addLine = (line) => setUploadStatus(s => ({ lines: [...s.lines, line] }));
+    const replaceLast = (line) => setUploadStatus(s => {
+      const l = [...s.lines];
+      l[l.length - 1] = line;
+      return { lines: l };
+    });
+
+    function progressLine(pct, loaded, total, speed, elapsed) {
+      return { type: 'progress', pct, loaded, total, speed: speed.toFixed(1), elapsed: elapsed.toFixed(2) };
     }
+
+    addLine({ type: 'info', text: 'Connecting → Cloudflare Edge...' });
+    addLine({ type: 'info', text: 'TLS established' });
+
+    if (isLarge) addLine({ type: 'info', text: 'Uploading...' });
+    else addLine({ type: 'info', text: 'Sending request...' });
+
+    let responseTime = 0, cfRay = null, dbSuccess = false, errMsg = '';
+
+    try {
+      if (isLarge) {
+        const xhrResult = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', API_URL);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          let progressAdded = false;
+          const uploadStart = performance.now();
+          xhr.upload.addEventListener('progress', (e) => {
+            if (!e.lengthComputable) return;
+            const elapsed = (performance.now() - uploadStart) / 1000;
+            const speed = elapsed > 0 ? (e.loaded / 1024) / elapsed : 0;
+            const line = progressLine(Math.round(e.loaded / e.total * 100), e.loaded, e.total, speed, elapsed);
+            if (!progressAdded) { addLine(line); progressAdded = true; }
+            else replaceLast(line);
+          });
+          xhr.addEventListener('loadend', () => {
+            responseTime = performance.now() - startTime;
+            cfRay = xhr.getResponseHeader('cf-ray');
+            try { resolve({ data: JSON.parse(xhr.responseText), status: xhr.status }); }
+            catch { reject(new Error('Invalid server response')); }
+          });
+          xhr.addEventListener('error', () => reject(new Error('Network error')));
+          xhr.send(bodyBlob);
+        });
+        responseTime = performance.now() - startTime;
+        cfRay = cfRay || (xhrResult.status >= 200 && xhrResult.status < 300 ? null : null);
+        dbSuccess = xhrResult.status >= 200 && xhrResult.status < 300 && !xhrResult.data?.error;
+        errMsg = xhrResult.data?.error || '';
+        addLine({ type: 'info', text: 'Waiting for server...' });
+      } else {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+        });
+        responseTime = performance.now() - startTime;
+        cfRay = res.headers.get('cf-ray');
+        const data = await res.json();
+        dbSuccess = res.ok && !data.error;
+        errMsg = data.error || '';
+        addLine({ type: 'info', text: 'Waiting for server...' });
+      }
+    } catch (err) {
+      addLine({ type: 'error', text: err.message || 'Network error' });
+      setHistory(h => { const n = [...h]; if (n.length > idx) { n[idx] = { ...n[idx], status: 'err' }; } return n; });
+      setUploadStatus(null);
+      return;
+    }
+
+    if (dbSuccess) addLine({ type: 'kv', key: 'Cloudflare Worker', value: 'Accepted' });
+    else addLine({ type: 'kv', key: 'Cloudflare Worker', value: 'Error' });
+    addLine({ type: 'kv', key: 'Database Write', value: dbSuccess ? 'Success' : 'Failed' });
+    addLine({ type: 'kv', key: 'Response Time', value: `${Math.round(responseTime)} ms` });
+    if (cfRay) addLine({ type: 'kv', key: 'CF-Ray', value: cfRay });
+
+    if (dbSuccess) {
+      addLine({ type: 'success', text: 'Stored successfully' });
+      setHistory(h => { const n = [...h]; if (n.length > idx) { n[idx] = { ...n[idx], status: 'ok' }; } return n; });
+    } else {
+      addLine({ type: 'error', text: errMsg || 'Storage failed' });
+      setHistory(h => { const n = [...h]; if (n.length > idx) { n[idx] = { ...n[idx], status: 'err' }; } return n; });
+    }
+    setUploadStatus(null);
   }, [history.length, classNum, section]);
 
   const submit = useCallback(async () => {
@@ -635,8 +707,6 @@ function CliModal({ onClose }) {
     const extracted = result.text || '';
     setAnalyzing(true);
     setHistory(h => [...h, { type: 'sys', text: '[Image Ingest] OCR complete.' }]);
-
-    await new Promise(resolve => setTimeout(resolve, 400));
 
     if (extracted) {
       setHistory(h => [...h, { type: 'ocr', text: extracted }]);
@@ -703,19 +773,28 @@ function CliModal({ onClose }) {
                     <span className="cli-prompt">[OCR]&nbsp;</span>{entry.text}
                   </div>
                 )}
-                {entry.status === 'uploading' && uploadProgress !== null && (
-                  <div className="cli-progress">
-                    <span className="cli-progress-bar">
-                      <span className="cli-progress-fill" style={{ width: `${uploadProgress}%` }} />
-                    </span>
-                    <span className="cli-progress-pct">{uploadProgress}%</span>
+                {entry.status === 'uploading' && uploadStatus && (
+                  <div className="cli-upload-status">
+                    {uploadStatus.lines.map((line, li) => (
+                      <div key={li} className={`cli-ul-${line.type}`}>
+                        {line.type === 'progress' && (
+                          <span>  {line.pct}%  ↑ {fmtBytes(line.loaded)} / {fmtBytes(line.total)}  Speed: {line.speed} KB/s  Elapsed: {line.elapsed}s</span>
+                        )}
+                        {line.type === 'info' && <span>  {line.text}</span>}
+                        {line.type === 'kv' && (
+                          <span>  {line.key.padEnd(18)}: {line.value}</span>
+                        )}
+                        {line.type === 'success' && <span>  ✓ {line.text}</span>}
+                        {line.type === 'error' && <span>  ✗ {line.text}</span>}
+                      </div>
+                    ))}
                   </div>
                 )}
                 {entry.status === 'ok' && (
-                  <div className="cli-ok">[==========] 100% done - stored in Class {classNum}, Section {section}.</div>
+                  <div className="cli-ok">  ✓ Stored in Class {classNum}, Section {section}.</div>
                 )}
                 {entry.status === 'err' && (
-                  <div className="cli-err">[!!] Storage failed. Check connection and retry.</div>
+                  <div className="cli-err">  ✗ Storage failed.</div>
                 )}
               </div>
             ))}
